@@ -1,27 +1,23 @@
-import type { SSRManifest } from 'astro';
-import { App } from 'astro/app';
-import { handle } from '@astrojs/cloudflare/handler'
-import { DurableObject } from 'cloudflare:workers';
+// @ts-check
+import cloudflare from '@astrojs/cloudflare';
+import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'astro/config';
+import react from '@astrojs/react';
 
-class MyDurableObject extends DurableObject<Env> {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env)
-  }
-}
+// https://astro.build/config
+export default defineConfig({
+  output: 'server', // REQUIRED for workerEntryPoint & SSR
 
-export function createExports(manifest: SSRManifest) {
-  const app = new App(manifest);
-  return {
-    default: {
-      async fetch(request, env, ctx) {
-        await env.MY_QUEUE.send("log");
-        return handle(manifest, app, request, env, ctx);
-      },
-      async queue(batch, _env) {
-        let messages = JSON.stringify(batch.messages);
-        console.log(`consumed from our queue: ${messages}`);
-      }
-    } satisfies ExportedHandler<Env>,
-    MyDurableObject: MyDurableObject,
-  }
-}
+  adapter: cloudflare({
+    workerEntryPoint: {
+      path: 'src/worker.ts',
+      namedExports: ['MyDurableObject']
+    }
+  }),
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
+
+  integrations: [react()],
+});
