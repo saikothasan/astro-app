@@ -1,23 +1,42 @@
-// @ts-check
-import cloudflare from '@astrojs/cloudflare';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'astro/config';
-import react from '@astrojs/react';
+import { App } from 'astro/app';
+import type { SSRManifest } from 'astro';
+import { DurableObject } from 'cloudflare:workers';
 
-// https://astro.build/config
-export default defineConfig({
-  output: 'server', // REQUIRED for workerEntryPoint & SSR
+// Define the Environment Interface
+export interface Env {
+  DB: D1Database;
+  COMMENT_DO: DurableObjectNamespace;
+  ASSETS: Fetcher;
+}
 
-  adapter: cloudflare({
-    workerEntryPoint: {
-      path: 'src/worker.ts',
-      namedExports: ['MyDurableObject']
+// Optional: A Durable Object for managing active comment viewers (Real-time logic)
+export class CommentDO extends DurableObject {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+  }
+  async fetch(request: Request) {
+    // Simple counter example or websocket handler
+    return new Response("Durable Object Active");
+  }
+}
+
+// The Integration Logic
+export function createExports(manifest: SSRManifest) {
+  const app = new App(manifest);
+
+  const fetch = async (request: Request, env: Env, ctx: ExecutionContext) => {
+    // 1. Intercept specific routes if you want to bypass Astro (Optional)
+    const url = new URL(request.url);
+    if (url.pathname.startsWith('/api/custom-worker-route')) {
+       return new Response("Handled by Worker directly!");
     }
-  }),
 
-  vite: {
-    plugins: [tailwindcss()],
-  },
+    // 2. Otherwise, render the Astro App
+    return app.render(request, { env, ctx });
+  };
 
-  integrations: [react()],
-});
+  return {
+    default: { fetch },
+    CommentDO // Export the class so Cloudflare can find it
+  };
+}
