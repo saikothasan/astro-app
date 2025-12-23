@@ -1,23 +1,40 @@
-// @ts-check
-import cloudflare from '@astrojs/cloudflare';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'astro/config';
-import react from '@astrojs/react';
-
-// https://astro.build/config
-export default defineConfig({
-  output: 'server', // REQUIRED for workerEntryPoint & SSR
-
-  adapter: cloudflare({
-    workerEntryPoint: {
-      path: 'src/worker.ts',
-      namedExports: ['MyDurableObject']
-    }
-  }),
-
-  vite: {
-    plugins: [tailwindcss()],
+{
+  "main": "dist/_worker.js/index.js",
+  "name": "astro-app",
+  "compatibility_date": "2025-12-22",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
   },
-
-  integrations: [react()],
-});
+  "observability": {
+    "enabled": true
+  },
+  // Add these bindings to match your src/worker.ts code
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MY_DURABLE_OBJECT",
+        "class_name": "MyDurableObject"
+      }
+    ]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "MY_QUEUE",
+        "queue": "my-queue-name" 
+      }
+    ]
+  },
+  // Durable Objects require a migration configuration
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MyDurableObject"]
+    }
+  ]
+}
